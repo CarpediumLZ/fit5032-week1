@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    concurrency: ci-${{ github.ref }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          DEPLOY_TARGET: gh-pages
+          # .env.local is not in Git, so the weather key comes from a GitHub Secret
+          VITE_OPENWEATHER_KEY: ${{ secrets.VITE_OPENWEATHER_KEY }}
+
+      # GitHub Pages has no SPA fallback. Copying index.html to 404.html
+      # lets pages like /WeatherCheck load after a refresh.
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: dist
+
+permissions:
+  contents: write
